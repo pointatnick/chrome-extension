@@ -15,5 +15,14 @@ chrome.browserAction.onClicked.addListener(function() {
 
 // receive message from content.js
 chrome.runtime.onMessage.addListener(function(msg, _, sendResponse) {
-  console.log("Message from content script: " + msg)
+  if (msg.sendUrl) {
+    console.log("The current URL is " + msg.url)
+  }
 })
+
+// block requests to Youtube
+chrome.webRequest.onBeforeRequest.addListener(function(details) {
+  return {cancel: true}
+},
+{urls: ['*://*.youtube.com/*']},
+['blocking'])
