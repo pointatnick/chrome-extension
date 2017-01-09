@@ -1,5 +1,5 @@
-// send message to background.js
-chrome.runtime.sendMessage('hello background')
+// send URL to background.js
+chrome.runtime.sendMessage(document.URL)
 
 // receive message from background.js
 chrome.runtime.onMessage.addListener(function(msg, _, sendResponse) {
