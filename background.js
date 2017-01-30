@@ -2,18 +2,6 @@
 var API_KEY = 'AIzaSyD3dCBi7EHdc9bTVDWR_12gqSyTlsblaww';
 var lastTabId = -1;
 
-// send message to content.js
-function sendMessage(msg) {
-  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-    chrome.tabs.sendMessage(tabs[0].id, msg);
-  });
-}
-
-// when browser action is clicked
-chrome.browserAction.onClicked.addListener(function() {
-  sendMessage('clicked_browser_action');
-});
-
 // receive message from content.js
 chrome.runtime.onMessage.addListener(function(msg, _, sendResponse) {
   // if we get a URL
@@ -24,32 +12,42 @@ chrome.runtime.onMessage.addListener(function(msg, _, sendResponse) {
       videoId = videoId.slice(0, videoId.indexOf('&'));
     }
     console.log("The video ID is", videoId);
-    // see if valid video ID
-    if (videoId === '') {
-      console.log('Invalid video ID');
-    } else {
-      // check video ID against Youtube API
-      console.log('Looking up', videoId);
-      var apiRequest = new XMLHttpRequest();
-      apiRequest.addEventListener('load', function() {
-        var apiResponse = JSON.parse(apiRequest.responseText);
+    // check video ID against Youtube API
+    console.log('Looking up', videoId);
+    var apiRequest = new XMLHttpRequest();
+    apiRequest.addEventListener('load', function() {
+      var apiResponse = JSON.parse(apiRequest.responseText);
+      // checks for valid ID which returns only 1 result
+      if (apiResponse.pageInfo.totalResults === 1) {
         var category = apiResponse.items[0].snippet.categoryId;
-        if (category !== '27') {
-          console.log('not an educational video')
-          // block
 
+        // block videos not tagged "education"
+        if (category !== '27') {
+          // add to block filter, refresh page
+          console.log('not an educational video, blocking...');
+          updateFilters([msg.url]);
+          chrome.tabs.reload();
         }
-      })
-      apiRequest.open('GET', 'https://www.googleapis.com/youtube/v3/videos?key=' + API_KEY + '&id=' + videoId + '&part=snippet');
-      apiRequest.send();
-    }
+      } else {
+        console.log('invalid video ID...');
+      }
+    })
+    apiRequest.open('GET', 'https://www.googleapis.com/youtube/v3/videos?key=' + API_KEY + '&id=' + videoId + '&part=snippet');
+    apiRequest.send();
   }
 })
 
-/*
-chrome.webRequest.onBeforeRequest.addListener(function(details) {
-  return {cancel: true}
-},
-{urls: [msg.url]},
-['blocking'])
-*/
+function blockRequest(details) {
+  return {cancel: true};
+}
+
+function updateFilters(urls) {
+  if (chrome.webRequest.onBeforeRequest.hasListener(blockRequest)) {
+    chrome.webRequest.onBeforeRequest.removeListener(blockRequest);
+  }
+  chrome.webRequest.onBeforeRequest.addListener(
+    blockRequest,
+    {urls: urls},
+    ['blocking']
+  );
+}
